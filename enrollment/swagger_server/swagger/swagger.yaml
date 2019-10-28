@@ -1,0 +1,198 @@
+---
+swagger: "2.0"
+info:
+  description: "SKIDATA Face Recognition Box provides this API for web clients."
+  version: "1.0.0"
+  title: "SKIDATA Face Recognition Box Interface Description"
+host: "localhost:8080"
+basePath: "/"
+schemes:
+- "http"
+- "https"
+produces:
+- "application/json"
+paths:
+  /version:
+    get:
+      tags:
+      - "server"
+      summary: "returns the version of the Face Recognition Box implementing this\
+        \ API"
+      operationId: "get_version"
+      produces:
+      - "application/text"
+      parameters: []
+      responses:
+        200:
+          description: "version information"
+          schema:
+            type: "string"
+        401:
+          description: "Unauthorized"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.server_controller"
+  /statistics:
+    get:
+      tags:
+      - "server"
+      summary: "returns a key/value map describing relevant statistics"
+      operationId: "get_statistics"
+      parameters: []
+      responses:
+        200:
+          description: "key/value list"
+          schema:
+            $ref: "#/definitions/KeyValues"
+        401:
+          description: "Unauthorized"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.server_controller"
+  /enroll:
+    post:
+      tags:
+      - "enrollment"
+      summary: "enrolls an identification with an image of the persons face"
+      description: "If there is a enrolled identification the image is added to the\
+        \ set of images to be used as references. To remove a single reference image,\
+        \ use DELETE /enroll and then POST /enroll."
+      operationId: "update_enrollment"
+      consumes:
+      - "multipart/form-data"
+      parameters:
+      - name: "name"
+        in: "formData"
+        description: "name of the holder of the ticket"
+        required: true
+        type: "string"
+      - name: "file"
+        in: "formData"
+        description: "file to upload"
+        required: true
+        type: "file"
+      responses:
+        200:
+          description: "enrollment reference data"
+          schema:
+            $ref: "#/definitions/Enrollment"
+        400:
+          description: "no face found"
+        401:
+          description: "Unauthorized"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.enrollment_controller"
+  /enroll/{name}:
+    get:
+      tags:
+      - "enrollment"
+      summary: "get the information of an enrollment"
+      operationId: "get_enrollment"
+      parameters:
+      - name: "name"
+        in: "path"
+        description: "name (of persone) for which enrollment was done"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "enrollment reference data"
+          schema:
+            $ref: "#/definitions/Enrollment"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "no enrollment found"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.enrollment_controller"
+    delete:
+      tags:
+      - "enrollment"
+      summary: "delete the enrollment for the ticket id"
+      operationId: "delete_enrollment"
+      parameters:
+      - name: "name"
+        in: "path"
+        description: "name (of person) to delete enrollment for"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "OK, deleted (or not found)"
+        401:
+          description: "Unauthorized"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.enrollment_controller"
+  /enroll/{name}/{image_nr}:
+    get:
+      tags:
+      - "enrollment"
+      summary: "get an image enrolled for the name, enumeration starts w/ 0"
+      operationId: "get_enrollment_image"
+      produces:
+      - "image/png"
+      - "image/gif"
+      - "image/jpeg"
+      - "application/octet-stream"
+      parameters:
+      - name: "name"
+        in: "path"
+        description: "name(of person) for which enrollment was done"
+        required: true
+        type: "string"
+      - name: "image_nr"
+        in: "path"
+        description: "image number to get"
+        required: true
+        type: "integer"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: "string"
+            format: "byte"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "no image with sequence image_nr found"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.enrollment_controller"
+definitions:
+  KeyValue:
+    required:
+    - "key"
+    properties:
+      key:
+        type: "string"
+      value:
+        type: "string"
+  KeyValues:
+    type: "array"
+    items:
+      $ref: "#/definitions/KeyValue"
+  Enrollment:
+    type: "object"
+    required:
+    - "name"
+    - "reference_id"
+    properties:
+      reference_id:
+        type: "string"
+        description: "reference id of the enrollment in the face recognition system"
+      name:
+        type: "string"
+        description: "name of person enrolled"
+      images:
+        type: "integer"
+        description: "number of images associated with the person enrolled"
+      key_values:
+        $ref: "#/definitions/KeyValues"
+    example:
+      images: 0
+      reference_id: "reference_id"
+      key_values: ""
+      name: "name"
