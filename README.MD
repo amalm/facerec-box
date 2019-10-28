@@ -3,6 +3,7 @@ Package a NVIDIA Jetson Nano with a camera in a box, use deep stream pipelines t
 
 Structure:
 
+* api: api definitions
 * models: common models for detection, recognition, ...
 * pipeline: deep stream pipelines
 * enrollment: enrollment backend
