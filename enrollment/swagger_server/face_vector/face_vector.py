@@ -6,7 +6,6 @@ import glob as gb
 import numpy as np
 from PIL import Image
 from detector import detect_faces
-from matplotlib import pylab
 
 
 # hyper parameters
