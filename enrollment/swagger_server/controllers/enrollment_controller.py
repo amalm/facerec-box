@@ -1,9 +1,9 @@
 import connexion
 import six
 
-from swagger_server.models.byte_array import ByteArray  # noqa: E501
 from swagger_server.models.enrollment import Enrollment  # noqa: E501
 from swagger_server import util
+from swagger_server.face_vector import face_vector
 
 
 def delete_enrollment(name):  # noqa: E501

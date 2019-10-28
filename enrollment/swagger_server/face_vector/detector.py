@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 from torch.autograd import Variable
-from get_nets import PNet, RNet, ONet
-from box_utils import nms, calibrate_box, get_image_boxes, convert_to_square
-from first_stage import run_first_stage
+from swagger_server.face_vector.get_nets import PNet, RNet, ONet
+from swagger_server.face_vector.box_utils import nms, calibrate_box, get_image_boxes, convert_to_square
+from swagger_server.face_vector.first_stage import run_first_stage
 
 
 def detect_faces(image, min_face_size = 20.0,

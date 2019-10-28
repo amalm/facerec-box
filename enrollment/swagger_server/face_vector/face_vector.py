@@ -5,7 +5,7 @@ import torch
 import glob as gb
 import numpy as np
 from PIL import Image
-from detector import detect_faces
+from swagger_server.face_vector.detector import detect_faces
 
 
 # hyper parameters
