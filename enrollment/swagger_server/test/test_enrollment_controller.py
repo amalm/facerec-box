@@ -61,6 +61,21 @@ class TestEnrollmentController(BaseTestCase):
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
+    def test_update_enrollment_base64(self):
+        """Test case for update_enrollment_base64
+
+        enrolls an identification with a Base64 image of the persons face
+        """
+        data = dict(name='name_example',
+                    image='image_example')
+        response = self.client.open(
+            '//enrollBase64',
+            method='POST',
+            data=data,
+            content_type='multipart/form-data')
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
 
 if __name__ == '__main__':
     import unittest

@@ -3,12 +3,13 @@ import six
 import csv
 import os, fnmatch
 import numpy as np
+from PIL import Image
+from io import BytesIO
+import base64
 
 from swagger_server.models.enrollment import Enrollment  # noqa: E501
 from swagger_server import util
 from swagger_server.face_vector.face_vector import FaceVector
-from mimetypes import guess_extension, guess_type
-
 
 faceVector = FaceVector()
 storageFile = "test.csv"
@@ -73,7 +74,6 @@ def get_enrollment(name):  # noqa: E501
 
     :rtype: Enrollment
     """
-
     filenames = find(name + '.*', storageFolder)
     if len(filenames) > 0:
         file = open(filenames[0])
@@ -93,12 +93,7 @@ def get_enrollment_image(name, image_nr):  # noqa: E501
 
     :rtype: ByteArray
     """
-    
-    filenames = find(name + '.*', storageFolder)
-    if len(filenames) > 0:
-        file = open(filenames[0])
-        return file, 200
-    return 'No enrollment found!', 400
+    return 'do some magic!'
 
 
 def update_enrollment(name, file):  # noqa: E501
@@ -121,7 +116,8 @@ def update_enrollment(name, file):  # noqa: E501
     extension = file.filename.split(".")[-1]
 
     # calculate the face vector
-    face_vec = faceVector.get_face_vector(file, storageFolder + '/' + name + '.' + extension)
+    img = Image.open(file)
+    face_vec = faceVector.get_face_vector(img, storageFolder + '/' + name + '.' + extension)
     if face_vec is None:
         return 'No face detected!', 400
     
@@ -148,4 +144,52 @@ def update_enrollment(name, file):  # noqa: E501
     registration_dict[name] = face_vec
     
     fileWriter(storageFolder, storageFile, registration_dict)
-    return 'Success', 200
+    #return "Success", 200
+    enrollment = Enrollment(None, name, 1, None)
+    return enrollment, 200
+
+
+def update_enrollment_base64(name, image):  # noqa: E501
+    """enrolls an identification with a Base64 image of the persons face
+
+    If there is a enrolled identification the image is added to the set of images to be used as references. To remove a single reference image, use DELETE /enroll and then POST /enroll. # noqa: E501
+
+    :param name: name of the holder of the ticket
+    :type name: str
+    :param image: Base64 image to upload
+    :type image: str
+
+    :rtype: Enrollment
+    """
+
+    img = Image.open(BytesIO(base64.b64decode(image.encode("utf-8"))))
+    face_vec = faceVector.get_face_vector(img, storageFolder + '/' + name + '.jpg')
+    if face_vec is None:
+        return 'No face detected!', 400
+    
+    # get all existing entries
+    registration_dict = fileParser(storageFolder, storageFile)
+
+    # check if the vector is similar to an existing vector and remove the old entry in this case
+    twin = None
+    for key, values in registration_dict.items():
+        dist = np.linalg.norm(values - face_vec)
+        if dist < 0.6:
+            twin = key
+            break
+    
+    if twin:
+        # delete the images of the twin
+        filenames = find(twin + '.*', storageFolder)
+        for filename in filenames:
+            os.remove(filename)
+        # remove the entry in te dictionary
+        del registration_dict[twin]
+
+    # adding the new vector to the list
+    registration_dict[name] = face_vec
+    
+    fileWriter(storageFolder, storageFile, registration_dict)
+    #return 'Success', 200
+    enrollment = Enrollment(None, name, 1, None)
+    return enrollment, 200

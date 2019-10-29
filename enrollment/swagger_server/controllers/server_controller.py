@@ -13,7 +13,6 @@ def get_statistics():  # noqa: E501
 
     :rtype: KeyValues
     """
-    print("test")
     return 'do some magic!'
 
 

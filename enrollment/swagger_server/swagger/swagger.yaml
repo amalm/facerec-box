@@ -83,6 +83,40 @@ paths:
         500:
           description: "Error"
       x-swagger-router-controller: "swagger_server.controllers.enrollment_controller"
+  /enrollBase64:
+    post:
+      tags:
+      - "enrollment"
+      summary: "enrolls an identification with a Base64 image of the persons face"
+      description: "If there is a enrolled identification the image is added to the\
+        \ set of images to be used as references. To remove a single reference image,\
+        \ use DELETE /enroll and then POST /enroll."
+      operationId: "update_enrollment_base64"
+      consumes:
+      - "multipart/form-data"
+      parameters:
+      - name: "name"
+        in: "formData"
+        description: "name of the holder of the ticket"
+        required: true
+        type: "string"
+      - name: "image"
+        in: "formData"
+        description: "Base64 image to upload"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "enrollment reference data"
+          schema:
+            $ref: "#/definitions/Enrollment"
+        400:
+          description: "no face found"
+        401:
+          description: "Unauthorized"
+        500:
+          description: "Error"
+      x-swagger-router-controller: "swagger_server.controllers.enrollment_controller"
   /enroll/{name}:
     get:
       tags:

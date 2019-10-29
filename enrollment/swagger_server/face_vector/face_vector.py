@@ -64,9 +64,8 @@ class FaceVector:
         return f[0]
 
 
-    def get_face_vector(self, file, savefilename=''):
+    def get_face_vector(self, img, savefilename=''):
         # open image and get all faces within the image
-        img = Image.open(file)
         bounding_boxes, landmarks = self.detector.detect_faces(img)
 
         # find the largest bounding box (i.e. the largest face)
@@ -92,9 +91,3 @@ class FaceVector:
         # calculate the face vector for the largest face within the image
         face_vec = self.image_encoding(self.model_eval, img)
         return face_vec
-
-'''
-if __name__ == '__main__':
-    face_vec = get_face_vector('samples/multiple.jpg', 'test3.jpg')
-    print(face_vec)
-'''
