@@ -20,7 +20,7 @@ def fileParser(folder, filename):
     registrations = dict()
     if os.path.isfile(folder + '/' + filename):
         with open(folder + '/' + filename) as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=',')
+            csv_reader = csv.reader(csv_file, delimiter=' ')
             for row in csv_reader:
                 if len(row) == 129:
                     array = np.zeros(128)
@@ -32,7 +32,7 @@ def fileParser(folder, filename):
 
 def fileWriter(folder, filename, registrations):
     with open(folder + '/' + filename, mode='w+', newline='') as csv_file:
-        registration_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        registration_writer = csv.writer(csv_file, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         
         for key, value in registrations.items():
             row_list = []
