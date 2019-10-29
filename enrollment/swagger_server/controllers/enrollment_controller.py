@@ -12,8 +12,8 @@ from swagger_server import util
 from swagger_server.face_vector.face_vector import FaceVector
 
 faceVector = FaceVector()
-storageFile = "test.csv"
-storageFolder = "test"
+storageFile = "users.csv"
+storageFolder = "/home/inno/enrollment"
 
 
 def fileParser(folder, filename):

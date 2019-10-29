@@ -42,6 +42,8 @@
 #define TRACKER_CONFIG_FILE "dstest2_tracker_config.txt"
 #define MAX_TRACKING_ID_LEN 16
 #define MAX_DISPLAY_LEN 64
+#define MAX_ENROLLMENTS 20
+#define NAME_SIZE 20
     
 
 /* Define global variables:
@@ -58,6 +60,11 @@ gchar *pgie_config = NULL;
 gchar *input_mp4 = NULL;
 gchar *output_mp4 = NULL;
 gchar *output_kitti = NULL;
+
+struct EnrollmentData {
+  float vectorArray[128]; 
+  char nameArray[NAME_SIZE];
+};
 
 /* initialize our gstreamer components for the app */
 
@@ -77,6 +84,39 @@ gulong osd_probe_id = 0;
 GstPad *osd_sink_pad = NULL, *tiler_sink_pad=NULL, *videopad = NULL;
 NvDsDisplayMeta *display_meta = NULL;
 
+/*
+Read a file with all enrolled user vectors
+*/
+static struct EnrollmentData* read_enrolled_users() {
+  FILE * fp;
+  double points;
+  size_t len = 0;
+  ssize_t read;
+
+  struct EnrollmentData *enrollmentArray = malloc(sizeof(struct EnrollmentData)*MAX_ENROLLMENTS);
+  for (int i = 0; i < MAX_ENROLLMENTS; i++) {
+    enrollmentArray[i].nameArray[0] = 0;
+  }
+  
+  fp = fopen("/home/inno/enrollment/users.csv", "r");
+  //rewind(fp);
+  int i = 0;
+  while(1){
+    fscanf(fp, "%s", enrollmentArray[i].nameArray);
+    int j = 0;
+    while(fscanf(fp, "%lf", &points) == 1) {
+      enrollmentArray[i].vectorArray[j] = points;
+      j++;
+    }
+    i++;
+    if(feof(fp) || i > MAX_ENROLLMENTS) {
+      break;
+    }
+  }
+
+  fclose(fp);
+  return enrollmentArray;
+}
 /* osd_sink_pad_buffer_probe function will extract metadata received on OSD sink pad
  * and then update params for drawing rectangle and write bbox to kitti file. */
 static GstPadProbeReturn
@@ -93,6 +133,8 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
   gchar bbox_file[1024] = { 0 };
   NvDsInferTensorMeta *meta = NULL;
   
+  struct EnrollmentData* enrollmentData = read_enrolled_users();
+
   for (l_frame = batch_meta->frame_meta_list; l_frame != NULL;
       l_frame = l_frame->next) {
 
@@ -122,13 +164,59 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
         l_obj = l_obj->next) {
       obj_meta = (NvDsObjectMeta *) (l_obj->data);
 
+      /* Secondary inference: Iterate user metadata in object to search SGIE's tensor data */
+      int faceFound = 0;
+      char* nameFound = NULL;
+      for (NvDsMetaList * l_user = obj_meta->obj_user_meta_list; l_user != NULL;
+          l_user = l_user->next) {
+        NvDsUserMeta *user_meta = (NvDsUserMeta *) l_user->data;
+        if (user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
+          continue;
+
+        /* convert to tensor metadata */
+        NvDsInferTensorMeta *meta =
+            (NvDsInferTensorMeta *) user_meta->user_meta_data;
+        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
+          NvDsInferLayerInfo *info = &meta->output_layers_info[i];
+          info->buffer = meta->out_buf_ptrs_host[i];
+        }
+
+        NvDsInferDimsCHW dims;
+        getDimsCHWFromDims (dims, meta->output_layers_info[0].dims);
+        unsigned int numClasses = dims.c;
+        float * outputCoverage = (float *) meta->output_layers_info[0].buffer;
+        float thereshold = 1;
+        
+        for(int i = 0; i < MAX_ENROLLMENTS; i++) {
+          if (enrollmentData[i].nameArray[0] == 0) {
+            break;
+          }
+          float distance = 0;
+          float percentage = 0;
+          for (unsigned int c = 0; c < numClasses; c++) {
+            distance = distance + pow((enrollmentData[i].vectorArray[c] - outputCoverage[c]), 2);
+            //g_print(" %f ", outputCoverage[c]);
+          }
+          distance = sqrt (distance);
+          //percentage = (thereshold * 100) / distance;
+          if(distance < 220.0) {
+            // NAME FOUND!
+            faceFound = 1;
+            nameFound = enrollmentData[i].nameArray;
+            break;
+          }
+        }
+      }
+      // ########### Secondary inference END ############
+
       NvOSD_RectParams * rect_params = &(obj_meta->rect_params);
       NvOSD_TextParams * text_params = &(obj_meta->text_params);
 
-      if (text_params->display_text) {
-        text_params->set_bg_clr = 0;
-        text_params->font_params.font_size = 0;
-        //g_print("%s", text_params->display_text);
+      text_params->set_bg_clr = 1;
+      text_params->font_params.font_size = 16;
+      text_params->display_text = g_strdup("Unknown");
+      if (nameFound) {
+        text_params->display_text = g_strdup(nameFound);
       }
 
       /* Draw black patch to cover license plates (class_id = 1) */
@@ -147,9 +235,19 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
       if (obj_meta->class_id == 0) {
         rect_params->border_width = 3;
         rect_params->has_bg_color = 0;
-        rect_params->bg_color.red = 0.92;
-        rect_params->bg_color.green = 0.75;
-        rect_params->bg_color.blue = 0.56;
+        if (faceFound) {
+          rect_params->border_color.red = 0;
+          rect_params->border_color.green = 1;
+          rect_params->border_color.blue = 0;
+        }
+        else {
+          rect_params->border_color.red = 1;
+          rect_params->border_color.green = 0;
+          rect_params->border_color.blue = 0;
+/*          rect_params->bg_color.red = 0.1;
+          rect_params->bg_color.green = 0.99;
+          rect_params->bg_color.blue = 0.2;*/
+        }
         rect_params->bg_color.alpha = 1.0;
         int left = (int) (rect_params->left);
         int top = (int) (rect_params->top);
@@ -181,6 +279,7 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
     nvds_add_display_meta_to_frame(frame_meta, display_meta);
   }
   frame_number++;
+
   return GST_PAD_PROBE_OK;
 }
 
@@ -234,7 +333,7 @@ sgie_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info, gpointer u_data)
         // float andersVector[] = {6.079948, 24.866442, 2.393355, -3.523091, 4.973300, 20.635519, 4.489353, -43.440643, -16.849237, 8.912560, -34.204453, -8.418649, 7.952823, -21.173738, 15.938661, 25.093266, 1.271977, -16.219709, 17.443192, 7.862370, 4.892845, -17.665228, -21.179815, 6.260545, 10.625956, 18.824543, 21.837982, -20.476871, 14.723811, -28.452898, -12.324395, 22.722729, -15.012059, 5.426246, 13.168803, -3.983388, -36.365780, 36.951130, 13.545861, 7.144661, 7.644301, -12.760685, -18.664396, -41.113712, -26.216841, -37.281796, 7.094177, -9.619549, -30.638075, -8.536470, -0.898749, 22.005152, 13.236649, 53.218742, 15.687201, -17.514215, 12.558628, 5.889134, 13.324570, -20.681456, 20.298918, 12.127140, -18.844158, -16.766962, -2.761991, 10.990556, -4.680828, -0.246854, 14.006875, -5.923696, 4.588718, 42.502064, -6.018079, -16.398460, -12.076542, 42.921200, -1.409913, 5.022273, -5.119063, 29.760481, -14.826686, 3.024464, 4.585452, -35.703655, -3.763637, -3.482555, 21.791273, -7.006104, -0.081873, 33.785191, 0.110503, 37.516758, -13.126665, 10.935510, -24.788177, 13.342460, -20.345207, -11.341810, 4.031567, -31.110607, -27.819778, 6.405779, -0.107389, -11.757529, -19.057871, 1.708370, -11.994015, 21.981575, 7.437770, 3.097313, -18.794645, -29.062634, -15.229033, -1.884448, 13.734872, 27.313787, -10.674825, 14.990287, 4.711210, 3.142950, -4.410483, -15.302653, -29.946747, 3.668982, -28.029997, -13.522010, -39.205914, -22.897799};
 
         NvDsInferDimsCHW dims;
-
+        /*
         FILE * fp;
         char name[20];
         double pointe;
@@ -261,7 +360,8 @@ sgie_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info, gpointer u_data)
         }
 
         fclose(fp);
-
+*/
+/*
         getDimsCHWFromDims (dims, meta->output_layers_info[0].dims);
         unsigned int numClasses = dims.c;
         float * outputCoverage = (float *) meta->output_layers_info[0].buffer;
@@ -281,8 +381,10 @@ sgie_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info, gpointer u_data)
             g_print("We found %s \n", nameArray[i]);
           }
         }
+        */
       }
     }
+    
   }
 
   // use_device_mem = 1 - use_device_mem;
@@ -720,17 +822,17 @@ contact: Shuo Wang (shuow@nvidia.com)");
   osd_sink_pad = gst_element_get_static_pad (osd, "sink");
   if (!osd_sink_pad)
     g_print ("Unable to get sink pad\n");
-  else
-    osd_probe_id = gst_pad_add_probe (osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
-        osd_sink_pad_buffer_probe, NULL, NULL);
+  //else
+  //  osd_probe_id = gst_pad_add_probe (osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
+  //      osd_sink_pad_buffer_probe, NULL, NULL);
 
   /* Add probe to get informed of the meta data generated, we add probe to
    * the sink pad of tiler element which is just after all SGIE elements.
    * Since by that time, GstBuffer would have had got all SGIEs tensor
    * metadata. */
   tiler_sink_pad = gst_element_get_static_pad (tiler, "sink");
-  gst_pad_add_probe (tiler_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
-      sgie_pad_buffer_probe, NULL, NULL);
+  gst_pad_add_probe (tiler_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, osd_sink_pad_buffer_probe, NULL, NULL);
+//      sgie_pad_buffer_probe, NULL, NULL);
 
   /* Set the pipeline to "playing" state */
   // if (input_mp4) {
