@@ -1,0 +1,24 @@
+<h1>{{title}}</h1>
+
+<div>
+   <div class="column">
+      <webcam [height]="300" [width] = "400" [trigger]="triggerObservable" (imageCapture)="handleImage($event)" *ngIf="showWebcam"
+         [imageQuality]="0.5">
+      </webcam>
+      <br />
+      <button class="actionBtn" (click)="triggerSnapshot();">Take A Snapshot</button>
+   </div>
+
+   <div class="column" *ngIf="webcamImage">      
+      <label for="name">Name:</label>
+      <input id="name" type="text" value='' #user_name>
+      <br/>
+      <img [src]="webcamImage.imageAsDataUrl" [height]="300" [width] = "400"/>
+      <br/>
+      <button class="actionBtn" (click)="enroll(user_name.value, webcamImage);">Enroll</button>
+   </div>
+</div>
+<h4 *ngIf="errors.length > 0">Messages:</h4>
+<ul *ngFor="let error of errors">
+   <li>{{error | json}}</li>
+</ul>
