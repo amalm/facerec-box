@@ -27,7 +27,7 @@ import { Configuration }                                     from '../configurat
 @Injectable()
 export class EnrollmentService {
 
-    protected basePath = 'http://10.16.70.122:8080';
+    protected basePath = 'http://192.168.0.2:8080';
     public defaultHeaders = new HttpHeaders();
     public configuration = new Configuration();
 

@@ -13,7 +13,7 @@ import { ActivatedRoute } from '@angular/router';
    styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-   title = 'SKIDATA Face Recognition in a Box';
+   title = 'SKIDATA Facepresso';
    public showWebcam = true;
    public errors: WebcamInitError[] = [];
 

@@ -1,1 +1,24 @@
 /* You can add global styles to this file, and also import other style files */
+/* Application-wide Styles */
+html {
+  margin: 1em;
+  width: 500px;
+  padding: 10px;
+  border: 5px solid gray;
+  background-color: #e3e4e5;
+  font-family: "Roboto", "Trebuchet MS", Arial, Helvetica, sans-serif;
+  color: #44484b;
+}
+h1 {
+  border-bottom: 3px solid #ffd631;
+}
+.center {
+  margin: auto;
+  text-align: center;
+}
+
+/*.column {
+  float: left;
+  width: 50%;
+  padding: 5px;
+}*/
