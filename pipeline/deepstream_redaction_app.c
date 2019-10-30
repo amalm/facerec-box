@@ -244,9 +244,6 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
           rect_params->border_color.red = 1;
           rect_params->border_color.green = 0;
           rect_params->border_color.blue = 0;
-/*          rect_params->bg_color.red = 0.1;
-          rect_params->bg_color.green = 0.99;
-          rect_params->bg_color.blue = 0.2;*/
         }
         rect_params->bg_color.alpha = 1.0;
         int left = (int) (rect_params->left);
@@ -283,113 +280,6 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
   return GST_PAD_PROBE_OK;
 }
 
-
-
-/* This is the buffer probe function that we have registered on the sink pad
- * of the tiler element. All SGIE infer elements in the pipeline shall attach
- * their NvDsInferTensorMeta to each object's metadata of each frame, here we will
- * iterate & parse the tensor data to get classification confidence and labels.
- * The result would be attached as classifier_meta into its object's metadata.
- */
-static GstPadProbeReturn
-sgie_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info, gpointer u_data)
-{
-  // static guint use_device_mem = 0;
-
-  NvDsBatchMeta *batch_meta =
-      gst_buffer_get_nvds_batch_meta (GST_BUFFER (info->data));
-
-  /* Iterate each frame metadata in batch */
-  for (NvDsMetaList * l_frame = batch_meta->frame_meta_list; l_frame != NULL;
-      l_frame = l_frame->next) {
-    NvDsFrameMeta *frame_meta = (NvDsFrameMeta *) l_frame->data;
-
-    /* Iterate object metadata in frame */
-    for (NvDsMetaList * l_obj = frame_meta->obj_meta_list; l_obj != NULL;
-        l_obj = l_obj->next) {
-      NvDsObjectMeta *obj_meta = (NvDsObjectMeta *) l_obj->data;
-
-      /* Iterate user metadata in object to search SGIE's tensor data */
-      for (NvDsMetaList * l_user = obj_meta->obj_user_meta_list; l_user != NULL;
-          l_user = l_user->next) {
-        NvDsUserMeta *user_meta = (NvDsUserMeta *) l_user->data;
-        if (user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
-          continue;
-
-        /* convert to tensor metadata */
-        NvDsInferTensorMeta *meta =
-            (NvDsInferTensorMeta *) user_meta->user_meta_data;
-        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
-          NvDsInferLayerInfo *info = &meta->output_layers_info[i];
-          info->buffer = meta->out_buf_ptrs_host[i];
-        }
-
-        // Daniel
-        // 33.266109  44.721207  -8.093238  8.607261  1.018674  4.225306  15.427460  -21.896448  17.131630  3.666708  6.758548  15.747367  -5.249896  -33.403217  18.581705  35.704426  21.184839  -21.524963  24.169294  51.767426  -3.869499  28.968487  -31.496643  -4.917439  -12.180170  1.919978  9.117884  11.257477  -3.720688  -22.379644  -2.380763  -19.097174  18.229465  -20.345495  2.143559  31.234604  2.539891  3.616607  29.985298  -23.372515  -14.431895  0.767531  -22.569065  16.930752  22.919582  0.542141  -5.366283  19.680092  -34.628109  15.561478  -24.193794  -4.562240  -1.393997  2.602936  -36.438358  -13.817758  -9.276709  -7.516984  -0.427978  9.852076  4.809119  -11.807707  19.577517  -11.563308  13.918237  12.557601  -3.672383  -11.853292  -42.035629  -3.721370  21.767813  7.647973  -2.155024  21.550896  3.844005  14.094526  -15.662120  17.488091  20.155241  12.416869  -13.976624  15.861327  -21.210743  8.389204  20.851074  33.490974  -9.239824  -12.047297  5.827424  18.265280  15.065310  56.053215  8.333794  6.592084  28.435656  37.343670  4.218566  20.588047  3.128269  -38.278358  -2.249031  -14.864515  3.379786  -20.825569  3.462690  27.453674  -10.469261  -0.552019  8.379798  7.567946  -33.157246  20.211327  7.989738  16.521744  14.740194  8.339967  22.022375  -38.458729  -16.422976  34.026001  -14.243292  7.097173  -20.040533  17.890947  17.765669  6.218295  -12.958755  29.086155
-        // Anders
-        // 6.079948  24.866442  2.393355  -3.523091  4.973300  20.635519  4.489353  -43.440643  -16.849237  8.912560  -34.204453  -8.418649  7.952823  -21.173738  15.938661  25.093266  1.271977  -16.219709  17.443192  7.862370  4.892845  -17.665228  -21.179815  6.260545  10.625956  18.824543  21.837982  -20.476871  14.723811  -28.452898  -12.324395  22.722729  -15.012059  5.426246  13.168803  -3.983388  -36.365780  36.951130  13.545861  7.144661  7.644301  -12.760685  -18.664396  -41.113712  -26.216841  -37.281796  7.094177  -9.619549  -30.638075  -8.536470  -0.898749  22.005152  13.236649  53.218742  15.687201  -17.514215  12.558628  5.889134  13.324570  -20.681456  20.298918  12.127140  -18.844158  -16.766962  -2.761991  10.990556  -4.680828  -0.246854  14.006875  -5.923696  4.588718  42.502064  -6.018079  -16.398460  -12.076542  42.921200  -1.409913  5.022273  -5.119063  29.760481  -14.826686  3.024464  4.585452  -35.703655  -3.763637  -3.482555  21.791273  -7.006104  -0.081873  33.785191  0.110503  37.516758  -13.126665  10.935510  -24.788177  13.342460  -20.345207  -11.341810  4.031567  -31.110607  -27.819778  6.405779  -0.107389  -11.757529  -19.057871  1.708370  -11.994015  21.981575  7.437770  3.097313  -18.794645  -29.062634  -15.229033  -1.884448  13.734872  27.313787  -10.674825  14.990287  4.711210  3.142950  -4.410483  -15.302653  -29.946747  3.668982  -28.029997  -13.522010  -39.205914  -22.897799
-
-        // float danielVector[] = {33.266109, 44.721207, -8.093238, 8.607261, 1.018674, 4.225306, 15.427460, -21.896448, 17.131630, 3.666708, 6.758548, 15.747367, -5.249896, -33.403217, 18.581705, 35.704426, 21.184839, -21.524963, 24.169294, 51.767426, -3.869499, 28.968487, -31.496643, -4.917439, -12.180170, 1.919978, 9.117884, 11.257477, -3.720688, -22.379644, -2.380763, -19.097174, 18.229465, -20.345495, 2.143559, 31.234604, 2.539891, 3.616607, 29.985298, -23.372515, -14.431895, 0.767531, -22.569065, 16.930752, 22.919582, 0.542141, -5.366283, 19.680092, -34.628109, 15.561478, -24.193794, -4.562240, -1.393997, 2.602936, -36.438358, -13.817758, -9.276709, -7.516984, -0.427978, 9.852076, 4.809119, -11.807707, 19.577517, -11.563308, 13.918237, 12.557601, -3.672383, -11.853292, -42.035629, -3.721370, 21.767813, 7.647973, -2.155024, 21.550896, 3.844005, 14.094526, -15.662120, 17.488091, 20.155241, 12.416869, -13.976624, 15.861327, -21.210743, 8.389204, 20.851074, 33.490974, -9.239824, -12.047297, 5.827424, 18.265280, 15.065310, 56.053215, 8.333794, 6.592084, 28.435656, 37.343670, 4.218566, 20.588047, 3.128269, -38.278358, -2.249031, -14.864515, 3.379786, -20.825569, 3.462690, 27.453674, -10.469261, -0.552019, 8.379798, 7.567946, -33.157246, 20.211327, 7.989738, 16.521744, 14.740194, 8.339967, 22.022375, -38.458729, -16.422976, 34.026001, -14.243292, 7.097173, -20.040533, 17.890947, 17.765669, 6.218295, -12.958755, 29.086155};
-        // float andersVector[] = {6.079948, 24.866442, 2.393355, -3.523091, 4.973300, 20.635519, 4.489353, -43.440643, -16.849237, 8.912560, -34.204453, -8.418649, 7.952823, -21.173738, 15.938661, 25.093266, 1.271977, -16.219709, 17.443192, 7.862370, 4.892845, -17.665228, -21.179815, 6.260545, 10.625956, 18.824543, 21.837982, -20.476871, 14.723811, -28.452898, -12.324395, 22.722729, -15.012059, 5.426246, 13.168803, -3.983388, -36.365780, 36.951130, 13.545861, 7.144661, 7.644301, -12.760685, -18.664396, -41.113712, -26.216841, -37.281796, 7.094177, -9.619549, -30.638075, -8.536470, -0.898749, 22.005152, 13.236649, 53.218742, 15.687201, -17.514215, 12.558628, 5.889134, 13.324570, -20.681456, 20.298918, 12.127140, -18.844158, -16.766962, -2.761991, 10.990556, -4.680828, -0.246854, 14.006875, -5.923696, 4.588718, 42.502064, -6.018079, -16.398460, -12.076542, 42.921200, -1.409913, 5.022273, -5.119063, 29.760481, -14.826686, 3.024464, 4.585452, -35.703655, -3.763637, -3.482555, 21.791273, -7.006104, -0.081873, 33.785191, 0.110503, 37.516758, -13.126665, 10.935510, -24.788177, 13.342460, -20.345207, -11.341810, 4.031567, -31.110607, -27.819778, 6.405779, -0.107389, -11.757529, -19.057871, 1.708370, -11.994015, 21.981575, 7.437770, 3.097313, -18.794645, -29.062634, -15.229033, -1.884448, 13.734872, 27.313787, -10.674825, 14.990287, 4.711210, 3.142950, -4.410483, -15.302653, -29.946747, 3.668982, -28.029997, -13.522010, -39.205914, -22.897799};
-
-        NvDsInferDimsCHW dims;
-        /*
-        FILE * fp;
-        char name[20];
-        double pointe;
-        size_t len = 0;
-        ssize_t read;
-
-        float vectorArray[20][128]; 
-        char nameArray[20][20];
-
-        fp = fopen("./vectors.csv", "r");
-        //rewind(fp);
-        int i = 0;
-        while(1){
-          fscanf(fp, "%s", nameArray[i]);
-          int j = 0;
-          while(fscanf(fp, "%lf", &pointe) == 1) {
-            vectorArray[i][j] = pointe;
-            j++;
-          }
-          i++;
-          if(feof(fp) || i > 20) {
-            break;
-          }
-        }
-
-        fclose(fp);
-*/
-/*
-        getDimsCHWFromDims (dims, meta->output_layers_info[0].dims);
-        unsigned int numClasses = dims.c;
-        float * outputCoverage = (float *) meta->output_layers_info[0].buffer;
-        float thereshold = 1;
-        
-        for(int i = 0; i < 20; i++) {
-          float distance = 0;
-          float percentage = 0;
-          for (unsigned int c = 0; c < numClasses; c++) {
-            distance = distance + pow((vectorArray[i][c] - outputCoverage[c]), 2);
-            //g_print(" %f ", outputCoverage[c]);
-          }
-          distance = sqrt (distance);
-          percentage = (thereshold * 100) / distance;
-          if(percentage > 0.5) {
-            // NAME FOUND!
-            g_print("We found %s \n", nameArray[i]);
-          }
-        }
-        */
-      }
-    }
-    
-  }
-
-  // use_device_mem = 1 - use_device_mem;
-  return GST_PAD_PROBE_OK;
-}
 
 /* This bus callback function detects the error and state change in the main pipe 
  * and then export messages, export pipeline images or terminate the pipeline accordingly. */
@@ -822,9 +712,6 @@ contact: Shuo Wang (shuow@nvidia.com)");
   osd_sink_pad = gst_element_get_static_pad (osd, "sink");
   if (!osd_sink_pad)
     g_print ("Unable to get sink pad\n");
-  //else
-  //  osd_probe_id = gst_pad_add_probe (osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
-  //      osd_sink_pad_buffer_probe, NULL, NULL);
 
   /* Add probe to get informed of the meta data generated, we add probe to
    * the sink pad of tiler element which is just after all SGIE elements.
@@ -832,7 +719,7 @@ contact: Shuo Wang (shuow@nvidia.com)");
    * metadata. */
   tiler_sink_pad = gst_element_get_static_pad (tiler, "sink");
   gst_pad_add_probe (tiler_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, osd_sink_pad_buffer_probe, NULL, NULL);
-//      sgie_pad_buffer_probe, NULL, NULL);
+
 
   /* Set the pipeline to "playing" state */
   // if (input_mp4) {
