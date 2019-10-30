@@ -133,10 +133,6 @@ def update_enrollment(name, file):  # noqa: E501
             break
     
     if twin:
-        # delete the images of the twin
-        filenames = find(twin + '.*', storageFolder)
-        for filename in filenames:
-            os.remove(filename)
         # remove the entry in te dictionary
         del registration_dict[twin]
 
@@ -179,10 +175,6 @@ def update_enrollment_base64(name, image):  # noqa: E501
             break
     
     if twin:
-        # delete the images of the twin
-        filenames = find(twin + '.*', storageFolder)
-        for filename in filenames:
-            os.remove(filename)
         # remove the entry in te dictionary
         del registration_dict[twin]
 
